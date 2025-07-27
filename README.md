@@ -2,7 +2,7 @@
 
 ## Visão Geral
 
-API RESTful para gerenciamento de blogs, desenvolvida em Node.js com TypeScript, Express e TypeORM. Suporta PostgreSQL (produção) e SQLite (testes). Inclui autenticação JWT, documentação Swagger e testes automatizados com Jest.
+API RESTful para gerenciamento de blogs, desenvolvida em Node.js com TypeScript, Express e TypeORM. Suporta PostgreSQL (produção) e SQLite (testes). Inclui documentação Swagger e testes automatizados com Jest.
 
 ---
 
@@ -40,8 +40,9 @@ tsconfig.json
 ### Pré-requisitos
 
 - Node.js 20+
-- Docker (opcional, para ambiente containerizado)
-- PostgreSQL (produção) ou SQLite (testes)
+- Docker
+- PostgreSQL (produção)
+- SQLite (testes)
 - Git
 
 ### Instalação
@@ -112,14 +113,23 @@ Exemplo: `https://seu-app.onrender.com/api-docs`
 
 ### Principais Endpoints
 
-### Principais Endpoints
 
-- `GET /` — Status da API
-- `GET /status` — Lista de status
-- `GET /blogs` — Lista todos os blogs
-- `GET /blogs/:id` — Detalhe de um blog
-- `GET /blog-alunos` — Lista apenas blogs publicados (statusId = 1)
-- `GET /blog-alunos/busca?title=...&content=...` — Busca blogs publicados por título/conteúdo
+### Lista Completa de Endpoints
+
+| Método | Endpoint                        | Descrição                                                        |
+|--------|----------------------------------|------------------------------------------------------------------|
+| GET    | /                               | Status da API                                                    |
+| GET    | /status                         | Lista todos os status                                            |
+| POST   | /status                         | Criar novo status                                                |
+| GET    | /blogs                          | Lista todos os blogs                                             |
+| GET    | /blogs/:id                      | Detalha um blog pelo ID                                          |
+| GET    | /blog-alunos                    | Lista apenas blogs publicados (statusId = 1)                     |
+| GET    | /blog-alunos/busca              | Busca blogs publicados por título e/ou conteúdo                  |
+| POST   | /blogs                          | Cria um novo blog                                                |
+| PUT    | /blogs/:id                      | Atualiza um blog existente                                       |
+| DELETE | /blogs/:id                      | Remove um blog pelo ID                                           |
+
+> Para detalhes de payloads, parâmetros e respostas, consulte o Swagger em `/api-docs`.
 
 ---
 
@@ -158,9 +168,3 @@ GET /blogs/1 HTTP/1.1
 - O build de produção utiliza PostgreSQL; os testes utilizam SQLite em memória.
 
 ---
-
-## Observações
-
-- O projeto segue boas práticas de separação de ambientes e testes.
-- Para adicionar novas entidades, crie arquivos em `src/entity` e registre no `data-source.ts`.
-- Para rodar localmente com Docker, ajuste as variáveis de ambiente conforme seu setup.
