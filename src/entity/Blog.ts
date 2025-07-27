@@ -19,9 +19,9 @@ export class Blog {
   @JoinColumn({ name: 'statusId' })
   status: Status;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   createdDateTime: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
+  @UpdateDateColumn()
   updatedDateTime: Date;
 }
