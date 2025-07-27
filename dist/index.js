@@ -21,10 +21,11 @@ const swaggerOptions = {
             description: 'Documentação da API do Blog',
         },
     },
-    apis: ['./src/index.ts'], // Caminho dos arquivos com as rotas e comentários Swagger
+    apis: ['./src/index.ts'],
 };
 const swaggerSpec = (0, swagger_jsdoc_1.default)(swaggerOptions);
 app.use('/api-docs', swagger_ui_express_1.default.serve, swagger_ui_express_1.default.setup(swaggerSpec));
+// Rotas
 /**
  * @openapi
  * /:
@@ -104,6 +105,80 @@ app.get('/blogs', async (req, res) => {
         const blogRepo = data_source_1.AppDataSource.getRepository(Blog_1.Blog);
         const blogs = await blogRepo.find({ relations: ['status'] });
         res.json(blogs);
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+/**
+ * @openapi
+ * /blog-alunos:
+ *   get:
+ *     summary: Lista apenas os blogs publicados (statusId = 1)
+ *     responses:
+ *       200:
+ *         description: Lista de blogs publicados
+ */
+app.get('/blog-alunos', async (req, res) => {
+    try {
+        const blogRepo = data_source_1.AppDataSource.getRepository(Blog_1.Blog);
+        const blogs = await blogRepo.find({ where: { statusId: 1 }, relations: ['status'] });
+        const result = blogs.map(blog => ({
+            id: blog.id,
+            titulo: blog.title,
+            createdDateTime: blog.createdDateTime,
+            updatedDateTime: blog.updatedDateTime
+        }));
+        res.json(result);
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+/**
+ * @openapi
+ * /blog-alunos/busca:
+ *   get:
+ *     summary: Busca blogs publicados por título e/ou conteúdo
+ *     parameters:
+ *       - in: query
+ *         name: title
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Título do blog
+ *       - in: query
+ *         name: content
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Conteúdo do blog
+ *     responses:
+ *       200:
+ *         description: Lista de blogs encontrados
+ */
+app.get('/blog-alunos/busca', async (req, res) => {
+    try {
+        const { title, content } = req.query;
+        const blogRepo = data_source_1.AppDataSource.getRepository(Blog_1.Blog);
+        let blogs;
+        if (title || content) {
+            blogs = await blogRepo.createQueryBuilder('blog')
+                .where('blog.statusId = :statusId', { statusId: 1 })
+                .andWhere(title ? 'LOWER(blog.title) LIKE LOWER(:title)' : '1=1', { title: `%${title || ''}%` })
+                .andWhere(content ? 'LOWER(blog.content) LIKE LOWER(:content)' : '1=1', { content: `%${content || ''}%` })
+                .getMany();
+        }
+        else {
+            blogs = await blogRepo.find({ where: { statusId: 1 } });
+        }
+        const result = blogs.map(blog => ({
+            id: blog.id,
+            titulo: blog.title,
+            createdDateTime: blog.createdDateTime,
+            updatedDateTime: blog.updatedDateTime
+        }));
+        res.json(result);
     }
     catch (err) {
         res.status(500).json({ error: err.message });
@@ -248,13 +323,17 @@ app.delete('/blogs/:id', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-data_source_1.AppDataSource.initialize()
-    .then(() => {
-    app.listen(3000, () => {
-        console.log('Server running on port 3000');
+// Inicialização do banco e servidor
+if (require.main === module) {
+    data_source_1.AppDataSource.initialize()
+        .then(() => {
+        app.listen(3000, () => {
+            console.log('Server running on port 3000');
+        });
+        console.log('Database connected!');
+    })
+        .catch((error) => {
+        console.error('Error during Data Source initialization:', error);
     });
-    console.log('Database connected!');
-})
-    .catch((error) => {
-    console.error('Error during Data Source initialization:', error);
-});
+}
+exports.default = app;

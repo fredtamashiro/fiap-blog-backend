@@ -5,7 +5,6 @@ import { AppDataSource } from './data-source';
 import { Status } from './entity/Status';
 import { Blog } from './entity/Blog';
 
-
 const app = express();
 app.use(express.json());
 
@@ -19,13 +18,12 @@ const swaggerOptions = {
       description: 'Documentação da API do Blog',
     },
   },
-  apis: ['./src/index.ts'], // Caminho dos arquivos com as rotas e comentários Swagger
+  apis: ['./src/index.ts'],
 };
-
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-
+// Rotas
 
 /**
  * @openapi
@@ -39,7 +37,6 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.get('/', (req, res) => {
   res.json({ message: 'API is running!' });
 });
-
 
 /**
  * @openapi
@@ -59,8 +56,6 @@ app.get('/status', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
 
 /**
  * @openapi
@@ -96,7 +91,6 @@ app.post('/status', async (req, res) => {
   }
 });
 
-
 /**
  * @openapi
  * /blogs:
@@ -116,6 +110,78 @@ app.get('/blogs', async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /blog-alunos:
+ *   get:
+ *     summary: Lista apenas os blogs publicados (statusId = 1)
+ *     responses:
+ *       200:
+ *         description: Lista de blogs publicados
+ */
+app.get('/blog-alunos', async (req, res) => {
+  try {
+    const blogRepo = AppDataSource.getRepository(Blog);
+    const blogs = await blogRepo.find({ where: { statusId: 1 }, relations: ['status'] });
+    const result = blogs.map(blog => ({
+      id: blog.id,
+      titulo: blog.title,
+      createdDateTime: blog.createdDateTime,
+      updatedDateTime: blog.updatedDateTime
+    }));
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @openapi
+ * /blog-alunos/busca:
+ *   get:
+ *     summary: Busca blogs publicados por título e/ou conteúdo
+ *     parameters:
+ *       - in: query
+ *         name: title
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Título do blog
+ *       - in: query
+ *         name: content
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Conteúdo do blog
+ *     responses:
+ *       200:
+ *         description: Lista de blogs encontrados
+ */
+app.get('/blog-alunos/busca', async (req, res) => {
+  try {
+    const { title, content } = req.query;
+    const blogRepo = AppDataSource.getRepository(Blog);
+    let blogs;
+    if (title || content) {
+      blogs = await blogRepo.createQueryBuilder('blog')
+        .where('blog.statusId = :statusId', { statusId: 1 })
+        .andWhere(title ? 'LOWER(blog.title) LIKE LOWER(:title)' : '1=1', { title: `%${title || ''}%` })
+        .andWhere(content ? 'LOWER(blog.content) LIKE LOWER(:content)' : '1=1', { content: `%${content || ''}%` })
+        .getMany();
+    } else {
+      blogs = await blogRepo.find({ where: { statusId: 1 } });
+    }
+    const result = blogs.map(blog => ({
+      id: blog.id,
+      titulo: blog.title,
+      createdDateTime: blog.createdDateTime,
+      updatedDateTime: blog.updatedDateTime
+    }));
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * @openapi
@@ -144,7 +210,6 @@ app.get('/blogs/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 /**
  * @openapi
@@ -179,7 +244,6 @@ app.post('/blogs', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 /**
  * @openapi
@@ -227,7 +291,6 @@ app.put('/blogs/:id', async (req, res) => {
   }
 });
 
-
 /**
  * @openapi
  * /blogs/{id}:
@@ -256,13 +319,18 @@ app.delete('/blogs/:id', async (req, res) => {
   }
 });
 
-AppDataSource.initialize()
-  .then(() => {
-    app.listen(3000, () => {
-      console.log('Server running on port 3000');
+// Inicialização do banco e servidor
+if (require.main === module) {
+  AppDataSource.initialize()
+    .then(() => {
+      app.listen(3000, () => {
+        console.log('Server running on port 3000');
+      });
+      console.log('Database connected!');
+    })
+    .catch((error) => {
+      console.error('Error during Data Source initialization:', error);
     });
-    console.log('Database connected!');
-  })
-  .catch((error) => {
-    console.error('Error during Data Source initialization:', error);
-  });
+}
+
+export default app;
