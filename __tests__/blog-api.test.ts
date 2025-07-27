@@ -1,9 +1,9 @@
 
 import request from 'supertest';
-import app from '../index';
-import { AppDataSource } from '../data-source';
-import { Status } from '../entity/Status';
-import { Blog } from '../entity/Blog';
+import app from '../src/index';
+import { AppDataSource } from '../src/data-source';
+import { Status } from '../src/entity/Status';
+import { Blog } from '../src/entity/Blog';
 
 describe('API Blog - Rotas principais', () => {
   beforeAll(async () => {
