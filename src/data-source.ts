@@ -2,13 +2,14 @@ import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { Status } from './entity/Status';
 import { Blog } from './entity/Blog';
+import { Usuario } from './entity/Usuario';
 
 export const AppDataSource =
   process.env.NODE_ENV === 'test'
     ? new DataSource({
         type: 'sqlite',
         database: ':memory:',
-        entities: [Status, Blog],
+  entities: [Status, Blog, Usuario],
         synchronize: true,
         logging: false,
       })
@@ -19,7 +20,7 @@ export const AppDataSource =
         username: process.env.DB_USER || 'postgres',
         password: process.env.DB_PASS || 'postgres',
         database: process.env.DB_NAME || 'postgres',
-        entities: [Status, Blog],
+  entities: [Status, Blog, Usuario],
         synchronize: true, // Use apenas em desenvolvimento
         logging: false,
       });

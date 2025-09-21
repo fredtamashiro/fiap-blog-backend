@@ -115,5 +115,10 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "strictPropertyInitialization": false
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "**/__tests__/*",
+    "**/*.test.ts"
+  ]
 }

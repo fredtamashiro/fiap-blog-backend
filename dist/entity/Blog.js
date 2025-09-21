@@ -37,11 +37,11 @@ __decorate([
     __metadata("design:type", Status_1.Status)
 ], Blog.prototype, "status", void 0);
 __decorate([
-    (0, typeorm_1.CreateDateColumn)({ type: 'timestamp' }),
+    (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)
 ], Blog.prototype, "createdDateTime", void 0);
 __decorate([
-    (0, typeorm_1.UpdateDateColumn)({ type: 'timestamp' }),
+    (0, typeorm_1.UpdateDateColumn)(),
     __metadata("design:type", Date)
 ], Blog.prototype, "updatedDateTime", void 0);
 exports.Blog = Blog = __decorate([

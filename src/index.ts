@@ -4,9 +4,20 @@ import swaggerJsdoc from 'swagger-jsdoc';
 import { AppDataSource } from './data-source';
 import { Status } from './entity/Status';
 import { Blog } from './entity/Blog';
+import { Usuario } from './entity/Usuario';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { autenticarJWT } from './middleware/autenticarJWT';
 
 const app = express();
 app.use(express.json());
+
+const cors = require('cors');
+app.use(cors({
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Swagger setup
 const swaggerOptions = {
@@ -24,6 +35,98 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Rotas
+/**
+ * @openapi
+ * /login:
+ *   post:
+ *     summary: Autenticação de usuário
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               login:
+ *                 type: string
+ *               senha:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Token JWT gerado
+ *       401:
+ *         description: Credenciais inválidas
+ */
+app.post('/login', async (req, res) => {
+  try {
+    const { login, senha } = req.body;
+    if (!login || !senha) {
+      return res.status(400).json({ error: 'Login e senha são obrigatórios.' });
+    }
+    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const usuario = await usuarioRepo.findOneBy({ login });
+    if (!usuario) {
+      return res.status(401).json({ error: 'Login ou senha inválidos.' });
+    }
+    const senhaValida = await bcrypt.compare(senha, usuario.senha);
+    if (!senhaValida) {
+      return res.status(401).json({ error: 'Login ou senha inválidos.' });
+    }
+    const token = jwt.sign(
+      { id: usuario.id, login: usuario.login, nome: usuario.nome },
+      process.env.JWT_SECRET || 'segredo_super_secreto',
+      { expiresIn: '2d' }
+    );
+    res.json({ token });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao autenticar.' });
+  }
+});
+/**
+ * @openapi
+ * /usuarios:
+ *   post:
+ *     summary: Cadastro de novo usuário
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nome:
+ *                 type: string
+ *               login:
+ *                 type: string
+ *               senha:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Usuário criado
+ *       400:
+ *         description: Dados inválidos ou login já existente
+ */
+app.post('/usuarios', async (req, res) => {
+  try {
+    const { nome, login, senha } = req.body;
+    if (!nome || !login || !senha) {
+      return res.status(400).json({ error: 'Nome, login e senha são obrigatórios.' });
+    }
+    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const existente = await usuarioRepo.findOneBy({ login });
+    if (existente) {
+      return res.status(400).json({ error: 'Login já cadastrado.' });
+    }
+    const senhaHash = await bcrypt.hash(senha, 10);
+    const novoUsuario = usuarioRepo.create({ nome, login, senha: senhaHash });
+    const salvo = await usuarioRepo.save(novoUsuario);
+    // Não retorna a senha
+    const { senha: _, ...usuarioSemSenha } = salvo;
+    res.status(201).json(usuarioSemSenha);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao cadastrar usuário.' });
+  }
+});
 
 /**
  * @openapi
@@ -233,7 +336,7 @@ app.get('/blogs/:id', async (req, res) => {
  *       201:
  *         description: Blog criado
  */
-app.post('/blogs', async (req, res) => {
+app.post('/blogs', autenticarJWT, async (req, res) => {
   try {
     const { title, content, statusId } = req.body;
     const blogRepo = AppDataSource.getRepository(Blog);
@@ -323,7 +426,7 @@ app.delete('/blogs/:id', async (req, res) => {
 if (require.main === module) {
   AppDataSource.initialize()
     .then(() => {
-      app.listen(3000, () => {
+      app.listen(3000, '0.0.0.0', () => {
         console.log('Server running on port 3000');
       });
       console.log('Database connected!');
