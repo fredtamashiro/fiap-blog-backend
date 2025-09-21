@@ -9,6 +9,15 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { autenticarJWT } from './middleware/autenticarJWT';
 
+// Extende o tipo Request para incluir 'usuario'
+declare global {
+  namespace Express {
+    interface Request {
+      usuario?: any;
+    }
+  }
+}
+
 const app = express();
 app.use(express.json());
 
@@ -206,7 +215,7 @@ app.post('/status', async (req, res) => {
 app.get('/blogs', async (req, res) => {
   try {
     const blogRepo = AppDataSource.getRepository(Blog);
-    const blogs = await blogRepo.find({ relations: ['status'] });
+    const blogs = await blogRepo.find({ relations: ['status', 'usuario'] });
     res.json(blogs);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -225,12 +234,13 @@ app.get('/blogs', async (req, res) => {
 app.get('/blog-alunos', async (req, res) => {
   try {
     const blogRepo = AppDataSource.getRepository(Blog);
-    const blogs = await blogRepo.find({ where: { statusId: 1 }, relations: ['status'] });
+    const blogs = await blogRepo.find({ where: { statusId: 1 }, relations: ['status', 'usuario'] });
     const result = blogs.map(blog => ({
       id: blog.id,
       titulo: blog.title,
       createdDateTime: blog.createdDateTime,
-      updatedDateTime: blog.updatedDateTime
+      updatedDateTime: blog.updatedDateTime,
+      autor: blog.usuario.nome
     }));
     res.json(result);
   } catch (err: any) {
@@ -267,6 +277,7 @@ app.get('/blog-alunos/busca', async (req, res) => {
     let blogs;
     if (title || content) {
       blogs = await blogRepo.createQueryBuilder('blog')
+        .leftJoinAndSelect('blog.usuario', 'usuario')
         .where('blog.statusId = :statusId', { statusId: 1 })
         .andWhere(title ? 'LOWER(blog.title) LIKE LOWER(:title)' : '1=1', { title: `%${title || ''}%` })
         .andWhere(content ? 'LOWER(blog.content) LIKE LOWER(:content)' : '1=1', { content: `%${content || ''}%` })
@@ -277,6 +288,7 @@ app.get('/blog-alunos/busca', async (req, res) => {
     const result = blogs.map(blog => ({
       id: blog.id,
       titulo: blog.title,
+      autor: blog.usuario ? blog.usuario.nome : null,
       createdDateTime: blog.createdDateTime,
       updatedDateTime: blog.updatedDateTime
     }));
@@ -306,7 +318,7 @@ app.get('/blog-alunos/busca', async (req, res) => {
 app.get('/blogs/:id', async (req, res) => {
   try {
     const blogRepo = AppDataSource.getRepository(Blog);
-    const blog = await blogRepo.findOne({ where: { id: Number(req.params.id) }, relations: ['status'] });
+    const blog = await blogRepo.findOne({ where: { id: Number(req.params.id) }, relations: ['status', 'usuario'] });
     if (!blog) return res.status(404).json({ error: 'Blog not found' });
     res.json(blog);
   } catch (err: any) {
@@ -339,8 +351,10 @@ app.get('/blogs/:id', async (req, res) => {
 app.post('/blogs', autenticarJWT, async (req, res) => {
   try {
     const { title, content, statusId } = req.body;
+    const usuarioId = req.usuario.id; // Pega o ID do usuário autenticado
+
     const blogRepo = AppDataSource.getRepository(Blog);
-    const newBlog = blogRepo.create({ title, content, statusId });
+    const newBlog = blogRepo.create({ title, content, statusId, usuarioId });
     const savedBlog = await blogRepo.save(newBlog);
     res.status(201).json(savedBlog);
   } catch (err: any) {
@@ -381,12 +395,14 @@ app.post('/blogs', autenticarJWT, async (req, res) => {
 app.put('/blogs/:id', async (req, res) => {
   try {
     const { title, content, statusId } = req.body;
+    const usuarioId = req.usuario.id;
     const blogRepo = AppDataSource.getRepository(Blog);
     const blog = await blogRepo.findOneBy({ id: Number(req.params.id) });
     if (!blog) return res.status(404).json({ error: 'Blog not found' });
     blog.title = title ?? blog.title;
     blog.content = content ?? blog.content;
     blog.statusId = statusId ?? blog.statusId;
+    blog.usuarioId = usuarioId;
     const updatedBlog = await blogRepo.save(blog);
     res.json(updatedBlog);
   } catch (err: any) {
