@@ -216,7 +216,16 @@ app.get('/blogs', async (req, res) => {
   try {
     const blogRepo = AppDataSource.getRepository(Blog);
     const blogs = await blogRepo.find({ relations: ['status', 'usuario'] });
-    res.json(blogs);
+    const result = blogs.map(blog => ({
+      id: blog.id,
+      title: blog.title,
+      content: blog.content,
+      status: blog.status,
+      usuario: blog.usuario ? { id: blog.usuario.id, nome: blog.usuario.nome, login: blog.usuario.login } : null,
+      createdDateTime: blog.createdDateTime,
+      updatedDateTime: blog.updatedDateTime
+    }));
+    res.json(result);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -279,16 +288,17 @@ app.get('/blog-alunos/busca', async (req, res) => {
       blogs = await blogRepo.createQueryBuilder('blog')
         .leftJoinAndSelect('blog.usuario', 'usuario')
         .where('blog.statusId = :statusId', { statusId: 1 })
-        .andWhere(title ? 'LOWER(blog.title) LIKE LOWER(:title)' : '1=1', { title: `%${title || ''}%` })
-        .andWhere(content ? 'LOWER(blog.content) LIKE LOWER(:content)' : '1=1', { content: `%${content || ''}%` })
+        .where('LOWER(blog.title) LIKE LOWER(:title)', { title: `%${title}%` })
+        .orWhere('LOWER(blog.content) LIKE LOWER(:content)', { content: `%${content}%` })
         .getMany();
     } else {
       blogs = await blogRepo.find({ where: { statusId: 1 } });
     }
     const result = blogs.map(blog => ({
       id: blog.id,
-      titulo: blog.title,
-      autor: blog.usuario ? blog.usuario.nome : null,
+      title: blog.title,
+      content: blog.content,
+      usuario: blog.usuario ? blog.usuario.nome : null,
       createdDateTime: blog.createdDateTime,
       updatedDateTime: blog.updatedDateTime
     }));
@@ -392,10 +402,10 @@ app.post('/blogs', autenticarJWT, async (req, res) => {
  *       404:
  *         description: Blog não encontrado
  */
-app.put('/blogs/:id', async (req, res) => {
+app.put('/blogs/:id', autenticarJWT, async (req, res) => {
   try {
     const { title, content, statusId } = req.body;
-    const usuarioId = req.usuario.id;
+    const usuarioId = req.usuario?.id;
     const blogRepo = AppDataSource.getRepository(Blog);
     const blog = await blogRepo.findOneBy({ id: Number(req.params.id) });
     if (!blog) return res.status(404).json({ error: 'Blog not found' });
@@ -406,7 +416,7 @@ app.put('/blogs/:id', async (req, res) => {
     const updatedBlog = await blogRepo.save(blog);
     res.json(updatedBlog);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message , id: req.params.id, body: req.body });
   }
 });
 
