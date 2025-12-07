@@ -44,6 +44,162 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Rotas
+
+/**
+ * @openapi
+ * /usuarios/{id}:
+ *   delete:
+ *     summary: Remove um usuário
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do usuário
+ *     responses:
+ *       200:
+ *         description: Usuário removido
+ *       404:
+ *         description: Usuário não encontrado
+ */
+app.delete('/usuarios/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const result = await usuarioRepo.delete(Number(id));
+    if (result.affected === 0) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+    res.json({ message: 'Usuário removido.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao remover usuário.' });
+  }
+});
+
+/**
+ * @openapi
+ * /usuarios/{id}:
+ *   put:
+ *     summary: Atualiza um usuário
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID do usuário
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nome:
+ *                 type: string
+ *               login:
+ *                 type: string
+ *               senha:
+ *                 type: string
+ *               tipo:
+ *                 type: string
+ *                 enum: [professor, aluno]
+ *     responses:
+ *       200:
+ *         description: Usuário atualizado
+ *       400:
+ *         description: Dados inválidos
+ *       404:
+ *         description: Usuário não encontrado
+ */
+app.put('/usuarios/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { nome, login, senha, tipo } = req.body;
+    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    const usuario = await usuarioRepo.findOneBy({ id: Number(id) });
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuário não encontrado.' });
+    }
+    if (tipo && !['professor', 'aluno'].includes(tipo)) {
+      return res.status(400).json({ error: "Tipo deve ser 'professor' ou 'aluno'." });
+    }
+    if (login) {
+      // Verifica se já existe outro usuário com o mesmo login
+      const existente = await usuarioRepo.findOneBy({ login });
+      if (existente && existente.id !== usuario.id) {
+        return res.status(400).json({ error: 'Login já cadastrado.' });
+      }
+      usuario.login = login;
+    }
+    if (nome) usuario.nome = nome;
+    if (tipo) usuario.tipo = tipo;
+    if (senha) {
+      usuario.senha = await bcrypt.hash(senha, 10);
+    }
+    const salvo = await usuarioRepo.save(usuario);
+    const { senha: _, ...usuarioSemSenha } = salvo;
+    res.json(usuarioSemSenha);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao atualizar usuário.' });
+  }
+});
+
+/**
+ * @openapi
+ * /usuarios:
+ *   get:
+ *     summary: Lista usuários
+ *     parameters:
+ *       - in: query
+ *         name: tipo
+ *         schema:
+ *           type: string
+ *           enum: [professor, aluno]
+ *         required: false
+ *         description: Filtra por tipo de usuário (professor ou aluno)
+ *     responses:
+ *       200:
+ *         description: Lista de usuários
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   nome:
+ *                     type: string
+ *                   login:
+ *                     type: string
+ *                   tipo:
+ *                     type: string
+ *                     enum: [professor, aluno]
+ */
+app.get('/usuarios', async (req, res) => {
+  try {
+    const { tipo } = req.query;
+    const usuarioRepo = AppDataSource.getRepository(Usuario);
+    let where = {};
+    if (tipo && ['professor', 'aluno'].includes(tipo as string)) {
+      where = { tipo };
+    }
+    const usuarios = await usuarioRepo.find({ where });
+    const resultado = usuarios.map(u => ({
+      id: u.id,
+      nome: u.nome,
+      login: u.login,
+      tipo: u.tipo
+    }));
+    res.json(resultado);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao listar usuários.' });
+  }
+});
+
 /**
  * @openapi
  * /login:
@@ -63,6 +219,20 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
  *     responses:
  *       200:
  *         description: Token JWT gerado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 id:
+ *                   type: integer
+ *                 nome:
+ *                   type: string
+ *                 tipo:
+ *                   type: string
+ *                   enum: [professor, aluno]
  *       401:
  *         description: Credenciais inválidas
  */
@@ -86,7 +256,12 @@ app.post('/login', async (req, res) => {
       process.env.JWT_SECRET || 'segredo_super_secreto',
       { expiresIn: '2d' }
     );
-    res.json({ token });
+    res.json({
+      token,
+      id: usuario.id,
+      nome: usuario.nome,
+      tipo: usuario.tipo
+    });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao autenticar.' });
   }
@@ -109,6 +284,10 @@ app.post('/login', async (req, res) => {
  *                 type: string
  *               senha:
  *                 type: string
+ *               tipo:
+ *                 type: string
+ *                 enum: [professor, aluno]
+ *                 description: Tipo do usuário (professor ou aluno)
  *     responses:
  *       201:
  *         description: Usuário criado
@@ -117,9 +296,12 @@ app.post('/login', async (req, res) => {
  */
 app.post('/usuarios', async (req, res) => {
   try {
-    const { nome, login, senha } = req.body;
-    if (!nome || !login || !senha) {
-      return res.status(400).json({ error: 'Nome, login e senha são obrigatórios.' });
+    const { nome, login, senha, tipo } = req.body;
+    if (!nome || !login || !senha || !tipo) {
+      return res.status(400).json({ error: 'Nome, login, senha e tipo são obrigatórios.' });
+    }
+    if (!['professor', 'aluno'].includes(tipo)) {
+      return res.status(400).json({ error: "Tipo deve ser 'professor' ou 'aluno'." });
     }
     const usuarioRepo = AppDataSource.getRepository(Usuario);
     const existente = await usuarioRepo.findOneBy({ login });
@@ -127,7 +309,7 @@ app.post('/usuarios', async (req, res) => {
       return res.status(400).json({ error: 'Login já cadastrado.' });
     }
     const senhaHash = await bcrypt.hash(senha, 10);
-    const novoUsuario = usuarioRepo.create({ nome, login, senha: senhaHash });
+    const novoUsuario = usuarioRepo.create({ nome, login, senha: senhaHash, tipo });
     const salvo = await usuarioRepo.save(novoUsuario);
     // Não retorna a senha
     const { senha: _, ...usuarioSemSenha } = salvo;

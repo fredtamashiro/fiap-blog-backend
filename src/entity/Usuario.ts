@@ -14,6 +14,14 @@ export class Usuario {
   @Column({ length: 255 })
   senha: string;
 
+  @Column({
+    type: "enum",
+    enum: ["professor", "aluno"],
+    enumName: "tipo",
+    default: "aluno"
+  })
+  tipo: "professor" | "aluno";
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

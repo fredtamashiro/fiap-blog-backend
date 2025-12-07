@@ -25,6 +25,7 @@ src/
   entity/
     Blog.ts          # Entidade Blog
     Status.ts        # Entidade Status
+    Usuario.ts       # Entidade Usuario (com campo enum tipo)
   __tests__/
     blog-api.test.ts # Testes automatizados
 Dockerfile
@@ -94,7 +95,6 @@ Os testes usam SQLite em memória, sem necessidade de banco externo.
 
 ---
 
-
 ## APIs Disponíveis
 
 ### Documentação Interativa (Swagger)
@@ -113,23 +113,57 @@ Exemplo: `https://seu-app.onrender.com/api-docs`
 
 ### Principais Endpoints
 
+#### Usuários
+| Método | Endpoint       | Descrição                                       |
+|--------|----------------|-------------------------------------------------|
+| GET    | /usuarios      | Lista usuários (filtro por tipo opcional)       |
+| POST   | /usuarios      | Cria novo usuário (nome, login, senha, tipo)    |
+| PUT    | /usuarios/{id} | Atualiza usuário (nome, login, senha, tipo)     |
+| DELETE | /usuarios/{id} | Remove usuário pelo ID                          |
+| POST   | /login         | Autentica usuário e retorna token + dados       |
 
-### Lista Completa de Endpoints
-
-| Método | Endpoint                        | Descrição                                                        |
-|--------|----------------------------------|------------------------------------------------------------------|
-| GET    | /                               | Status da API                                                    |
-| GET    | /status                         | Lista todos os status                                            |
-| POST   | /status                         | Criar novo status                                                |
-| GET    | /blogs                          | Lista todos os blogs                                             |
-| GET    | /blogs/:id                      | Detalha um blog pelo ID                                          |
-| GET    | /blog-alunos                    | Lista apenas blogs publicados (statusId = 1)                     |
-| GET    | /blog-alunos/busca              | Busca blogs publicados por título e/ou conteúdo                  |
-| POST   | /blogs                          | Cria um novo blog                                                |
-| PUT    | /blogs/:id                      | Atualiza um blog existente                                       |
-| DELETE | /blogs/:id                      | Remove um blog pelo ID                                           |
+#### Blogs e Status
+| Método | Endpoint                        | Descrição                                                       |
+|--------|---------------------------------|-----------------------------------------------------------------|
+| GET    | /                               | Status da API                                                   |
+| GET    | /status                         | Lista todos os status                                           |
+| POST   | /status                         | Criar novo status                                               |
+| GET    | /blogs                          | Lista todos os blogs                                            |
+| GET    | /blogs/:id                      | Detalha um blog pelo ID                                         |
+| GET    | /blog-alunos                    | Lista apenas blogs publicados (statusId = 1)                    |
+| GET    | /blog-alunos/busca              | Busca blogs publicados por título e/ou conteúdo                 |
+| POST   | /blogs                          | Cria um novo blog                                               |
+| PUT    | /blogs/:id                      | Atualiza um blog existente                                      |
+| DELETE | /blogs/:id                      | Remove um blog pelo ID                                          |
 
 > Para detalhes de payloads, parâmetros e respostas, consulte o Swagger em `/api-docs`.
+
+---
+
+## Usuários: Campos e Observações
+
+- O campo `tipo` do usuário é obrigatório e aceita apenas `professor` ou `aluno`.
+- Exemplo de payload para criação de usuário:
+
+```json
+{
+  "nome": "Maria",
+  "login": "maria123",
+  "senha": "senhaSegura",
+  "tipo": "aluno"
+}
+```
+
+## Exemplo de resposta do login
+
+```json
+{
+  "token": "<jwt_token>",
+  "id": 1,
+  "nome": "Maria",
+  "tipo": "aluno"
+}
+```
 
 ---
 
